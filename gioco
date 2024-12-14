@@ -1,0 +1,252 @@
+<section id="memory-addams-section">
+
+  <style>
+    * {
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box;
+    }
+    body {
+      background: #1d1d1d; 
+      color: #f7f7f7; 
+      font-family: Arial, sans-serif;
+    }
+    .game-container {
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      margin-top: 1rem;
+    }
+    .game-board {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(4, 100px);
+      grid-template-rows: repeat(4, 100px);
+      transition: all 0.3s ease;
+    }
+    .card {
+      background-color: #333;
+      perspective: 1000px;
+      cursor: pointer;
+      position: relative;
+      border: 2px solid #555;
+      border-radius: 10px;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+    .card-face {
+      position: absolute; 
+      width: 100%; 
+      height: 100%;
+      backface-visibility: hidden; 
+      top: 0; 
+      left: 0;
+    }
+    .card-front {
+      background: #1d1d1d;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      font-size: 2rem;
+    }
+    .card-back {
+      background-size: cover;
+      background-position: center center;
+      transform: rotateY(180deg);
+    }
+    .flipped {
+      transform: rotateY(180deg);
+    }
+    .matched {
+      cursor: default;
+      opacity: 0.6;
+      border: 2px solid #5cb85c;
+    }
+    .victory-message {
+      display: none;
+      text-align: center;
+      background: #333;
+      padding: 2rem;
+      border-radius: 10px;
+      margin-top: 2rem;
+    }
+    .victory-message h2 {
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+    .victory-message p {
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+    .victory-message button {
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      background: #5cb85c;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 1rem;
+    }
+    @media (max-width: 600px) {
+      .game-board {
+        grid-template-columns: repeat(3, 80px);
+        grid-template-rows: repeat(3, 80px);
+      }
+    }
+  </style>
+
+  <main style="text-align: center; padding: 1rem;">
+    <h1>Memory Game - Mercoledì Addams</h1>
+
+    <div class="game-container">
+      <div id="gameBoard" class="game-board"></div>
+    </div>
+
+    <div id="victoryMessage" class="victory-message">
+      <h2>Complimenti!</h2>
+      <p>Hai trovato tutte le coppie!</p>
+      <p>Usa il codice <strong>SCONTO15</strong> sul nostro sito.</p>
+      <button id="restartBtn">Rigioca</button>
+    </div>
+  </main>
+
+  <script>
+    const gameBoard = document.getElementById('gameBoard');
+    const victoryMessage = document.getElementById('victoryMessage');
+    const restartBtn = document.getElementById('restartBtn');
+
+    let isMobile = window.matchMedia('(max-width: 600px)').matches;
+
+    const gothicImages = [
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/corvo.jpg?v=1734123472",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/teschio.jpg?v=1734123393",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/mano.webp?v=1734123394",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/pipistrello.jpg?v=1734123470",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/bara.jpg?v=1734123395",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/luna.jpg?v=1734123394",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/ragno.jpg?v=1734123395",
+      "https://cdn.shopify.com/s/files/1/0865/3933/8061/files/fiamma.jpg?v=1734123394"
+    ];
+
+    const desktopPairs = 8;
+    const mobilePairs = 4;
+    const extraCard = 1;
+
+    let deck = [];
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let matchesFound = 0;
+    let totalPairs;
+
+    function createDeck() {
+      if (isMobile) {
+        const shuffled = shuffleArray([...gothicImages]);
+        const chosenImages = shuffled.slice(0, mobilePairs);
+        let tempDeck = [];
+        chosenImages.forEach(img => {
+          tempDeck.push(img, img);
+        });
+        tempDeck.push(shuffleArray([...gothicImages])[0]);
+        deck = shuffleArray(tempDeck);
+      } else {
+        let tempDeck = [];
+        gothicImages.forEach(img => {
+          tempDeck.push(img, img);
+        });
+        deck = shuffleArray(tempDeck);
+      }
+    }
+
+    function shuffleArray(array) {
+      let currentIndex = array.length, randomIndex;
+      while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+      }
+      return array;
+    }
+
+    function setupGame() {
+      gameBoard.innerHTML = "";
+      victoryMessage.style.display = "none";
+      matchesFound = 0;
+
+      createDeck();
+      totalPairs = isMobile ? mobilePairs : desktopPairs;
+
+      deck.forEach((imgSrc) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+
+        const cardFront = document.createElement('div');
+        cardFront.classList.add('card-face', 'card-front');
+        cardFront.textContent = "?";
+
+        const cardBack = document.createElement('div');
+        cardBack.classList.add('card-face', 'card-back');
+        cardBack.style.backgroundImage = `url(${imgSrc})`;
+
+        card.appendChild(cardFront);
+        card.appendChild(cardBack);
+        card.addEventListener('click', () => flipCard(card, imgSrc));
+        gameBoard.appendChild(card);
+      });
+    }
+
+    function flipCard(card, imgSrc) {
+      if (lockBoard) return;
+      if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      card.classList.add('flipped');
+
+      if (!firstCard) {
+        firstCard = { cardElement: card, src: imgSrc };
+      } else if (!secondCard) {
+        secondCard = { cardElement: card, src: imgSrc };
+        checkForMatch();
+      }
+    }
+
+    function checkForMatch() {
+      lockBoard = true;
+      const match = firstCard.src === secondCard.src;
+      if (match) {
+        firstCard.cardElement.classList.add('matched');
+        secondCard.cardElement.classList.add('matched');
+        matchesFound++;
+        resetFlip();
+
+        if (matchesFound === totalPairs) {
+          victoryMessage.style.display = "block";
+        }
+      } else {
+        setTimeout(() => {
+          firstCard.cardElement.classList.remove('flipped');
+          secondCard.cardElement.classList.remove('flipped');
+          resetFlip();
+        }, 1000);
+      }
+    }
+
+    function resetFlip() {
+      [firstCard, secondCard] = [null, null];
+      lockBoard = false;
+    }
+
+    restartBtn.addEventListener('click', setupGame);
+
+    setupGame();
+
+    window.addEventListener('resize', () => {
+      const mobileNow = window.matchMedia('(max-width: 600px)').matches;
+      if (mobileNow !== isMobile) {
+        isMobile = mobileNow;
+        setupGame();
+      }
+    });
+  </script>
+
+</section>
